@@ -118,27 +118,60 @@ Data['Calo Jets']={
 # bin info
 XAxis = {
    'Calo Jets':[ '20-30', '30-60', '60-90', '90-140', '140-200', '200-300' ],
-   'TrackJets':[ '10-20', '20-30', '30-60', '60-100', '100-250' ],
+   'TrackJets':[ '10-20', '20-30', '30-60', '60-100', '100-250', '250-300' ],
 }
 
 ErrSet  = {
-   'total':{'colo':kBlack,'pos':0, },
-     'sys':{'colo':kBlue, 'pos':1, },
-    'stat':{'colo':kRed,  'pos':2, },
+   'total':{'colo':kBlack,'pos':0, 'line':-1},
+     'sys':{'colo':kBlue, 'pos':1, 'line':-1},
+    'stat':{'colo':kRed,  'pos':2, 'line':-1},
 }
+
+# general setting
+suffix  = 'eps'
+lumi    = '27.65'
+width   = 0.8
+Central = {  'name':'sf',
+	    'title':'scale factors',
+	 'DrawLine':True,
+	       'LP':[0.55,0.65,0.9,0.9],
+	    'width':800,
+	   'height':600,
+	  }
+
+PlotTitle = 'Comparison between TP and PDF'
 
 MethodSet = {
-   'T_P':1,
-   'PDF':2,
+   'T_P':{'line':1,'shift':0,'colo':-1},
+   'PDF':{'line':2,'shift':1,'colo':-1},
 }
 
-width = 0.6
+# plotting function
+def ATLAS_LABEL(x, y, color):
+   l=TLatex()
+   l.SetNDC()
+   l.SetTextFont(72)
+   l.SetTextColor(color)
+   l.DrawLatex(x,y,"ATLAS")
 
-def MakePlot( Jet, WP ):
-    Title = 'Comparison between TP and PDF at %s WP of %s Calibration'%(WP,Jet)
-    c1 = TCanvas('c1',Title,800,600);
+def myText(x, y, color, text):
+   l=TLatex() #l.SetTextAlign(12); l.SetTextSize(tsize); 
+   l.SetNDC()
+   l.SetTextColor(color)
+   l.DrawLatex(x,y,text)
+
+def DrawLine(xmin,ypos,xmax,co):
+   line = TLine(xmin, ypos, xmax, ypos)
+   line.SetLineColor(co)
+   line.SetLineStyle(2)
+   line.SetLineWidth(3)
+   return line
+
+def MakePlot( Jet, WP, DataPool ):
+    Title = '%s at %s WP of %s Calibration'%(PlotTitle,WP,Jet)
+    c1 = TCanvas('c1',Title,Central['width'],Central['height']);
     mg = TMultiGraph("mg",Title);
-    leg = TLegend(0.55,0.65,0.9,0.9)
+    leg = TLegend( Central['LP'][0], Central['LP'][1], Central['LP'][2], Central['LP'][3] )
     #leg.SetTextFont(42)
     #leg.SetTextSize(0.04)
     leg.SetFillColor(0)
@@ -147,7 +180,7 @@ def MakePlot( Jet, WP ):
     leg.SetBorderSize(0)
     for mt in MethodSet:
        for err in ErrSet:
-	  g,l=MakeGraph(mt, Jet, WP, err)
+	  g,l=MakeGraph(mt, Jet, WP, err, DataPool)
 	  mg.Add(g)
 	  leg.AddEntry(g,l,"lp")
     NItems = len(XAxis[Jet])
@@ -162,41 +195,70 @@ def MakePlot( Jet, WP ):
     L_One.SetLineColor(kGreen)
     L_One.SetLineStyle(2)
     L_One.SetLineWidth(3)
-    L_One.Draw()
+    if Central['DrawLine']: L_One.Draw()
+    mg.GetYaxis().SetRangeUser(c1.GetUymin(), c1.GetUymin()+1.25*(c1.GetUymax()-c1.GetUymin()) );
+    ATLAS_LABEL(0.12, 0.85, 1)
 
-    c1.Print('Com_%s_%s.eps'%(Jet.replace(' ',''),WP))
+    l_LS=TLatex()
+    l_LS.SetNDC()
+    l_LS.SetTextSize(0.04)
+    l_LS.SetTextColor(1)
+    l_LS.DrawLatex(0.12, 0.78, "#intLdt = %s fb^{-1}   #sqrt{s} = 13 TeV"%lumi)
+    myText(0.25, 0.85, 1, 'Internal')
+
+    # make a color test
+    #mg.GetYaxis().SetRangeUser( -1.0, 20.0 );
+    #lines = []
+    #ypos = 1.0
+    #for co in [100, 96, 91, 88, 84, 71, 67, 62, 60, 55, 53, 51]:
+    #for co in [100, 96, 93, 91, 88, 84, 74, 70, 67, 65, 62, 51]:
+    #   print 'color %d'%co
+    #   ypos = 1+ypos
+    #   line=DrawLine(c1.GetUxmin(),ypos,c1.GetUxmax(),co)
+    #   lines.append(line)
+
+    #for line in lines:
+    #   line.Draw()
+
+    c1.Print('./complots/Com_%s_%s_%s.%s'%(Jet.replace(' ',''),WP,Central['name'],suffix))
     del c1
 
-def MakeSFWithErr( CR, bins, Err ): #Calibration Results
+def MakeCentralWithErr( CR, bins, Err ): #Calibration Results
     y = numpy.ndarray( [bins] )
     ey= numpy.ndarray( [bins] )
     ex= numpy.ndarray( [bins] )
     for ib in range( bins ):
-        y[ib]  = CR['sf'][ib]
+        y[ib]  = CR[Central['name']][ib]
         ex[ib] = 0.
         ey[ib] = CR[Err][ib]
 	#print y[ib],ex[ib],ey[ib]
     return y,ex,ey
 
-def MakeGraph( Method, Jet, WP, Err):
-    name = 'Scale factors with %s from %s at %s WP of %s'%(Err,Method,WP,Jet)
-    lname= 'sf with %5s from %s'%(Err,Method)
+def MakeGraph( Method, Jet, WP, Err, DataPool):
+    name = '%s with %s from %s at %s WP of %s'%(Central['title'],Err,Method,WP,Jet)
+    lname= '%s with %5s from %s'%(Central['name'],Err,Method)
     NItems = len(XAxis[Jet])
-    if Method == 'T_P': shift = 0.
-    else: shift = 0.5*width/len(ErrSet)
+    shift = MethodSet[Method]['shift']*width/(len(ErrSet)*(len(MethodSet)+1))
     binpos = 1.+shift-width/2.+ErrSet[Err]['pos']*width/len(ErrSet)
     x = numpy.ndarray( [NItems] )
     for ib in range( NItems ):
        x[ib] = ib + binpos
        #print x[ib]
-    CR = Data[Jet][Method][WP]
-    y, ex, ey = MakeSFWithErr( CR, NItems, Err )
+    CR = DataPool[Jet][Method][WP]
+    y, ex, ey = MakeCentralWithErr( CR, NItems, Err )
     g = TGraphErrors( NItems, x, y, ex, ey )
     g.SetLineWidth(3)
-    g.SetLineColor( ErrSet[Err]['colo'] )
-    g.SetLineStyle( MethodSet[Method] )
+
+    if ErrSet[Err]['line'] > 0: g.SetLineStyle( ErrSet[Err]['line'] )
+    if ErrSet[Err]['colo'] > 0: 
+       g.SetLineColor( ErrSet[Err]['colo'] )
+       g.SetMarkerColor(ErrSet[Err]['colo']);
+    if MethodSet[Method]['line'] > 0: g.SetLineStyle( MethodSet[Method]['line'] )
+    if MethodSet[Method]['colo'] > 0:
+       g.SetLineColor( MethodSet[Method]['colo'] )
+       g.SetMarkerColor(MethodSet[Method]['colo']);
+
     g.SetMarkerStyle(8);
-    g.SetMarkerColor(ErrSet[Err]['colo']);
     g.SetMarkerSize(1);
     g.SetTitle(name)
     return g,lname
@@ -206,12 +268,12 @@ def MakeGraph( Method, Jet, WP, Err):
 gROOT.SetBatch(1)
 
 if __name__=='__main__':
-   MakePlot('TrackJets','60')
-   MakePlot('TrackJets','70')
-   MakePlot('TrackJets','77')
-   MakePlot('TrackJets','85')
+   #MakePlot('TrackJets','60',Data)
+   #MakePlot('TrackJets','70',Data)
+   #MakePlot('TrackJets','77',Data)
+   #MakePlot('TrackJets','85',Data)
    
-   MakePlot('Calo Jets','60')
-   MakePlot('Calo Jets','70')
-   MakePlot('Calo Jets','77')
-   MakePlot('Calo Jets','85')
+   #MakePlot('Calo Jets','60',Data)
+   #MakePlot('Calo Jets','70',Data)
+   #MakePlot('Calo Jets','77',Data)
+   MakePlot('Calo Jets','85',Data)
