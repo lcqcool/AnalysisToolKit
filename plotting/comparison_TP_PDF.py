@@ -1,10 +1,12 @@
-import numpy
+#import numpy
+import os
 from ROOT import *
+from array import array
 
 Data={}
 
 Data['TrackJets']={
-      'T_P':{
+      'TP0':{
               '60':{
                         'sys':[0.074,0.025,0.018,0.018,0.025],
                        'stat':[0.019,0.012,0.006,0.008,0.016],
@@ -28,6 +30,33 @@ Data['TrackJets']={
                        'stat':[0.009,0.006,0.003,0.004,0.009],
                       'total':[0.061,0.028,0.013,0.011,0.018],
                          'sf':[1.029,1.023,1.015,1.013,0.995],
+              },
+      },
+
+      'TP1':{
+              '60':{
+                        'sys':[0.034,0.025,0.024,0.022,0.062],
+                       'stat':[0.011,0.009,0.005,0.007,0.013],
+                      'total':[0.035,0.027,0.025,0.024,0.064],
+                         'sf':[1.035,1.011,0.988,0.989,0.960],
+              },
+              '70':{
+                        'sys':[0.036,0.025,0.024,0.022,0.059],
+                       'stat':[0.008,0.007,0.004,0.006,0.012],
+                      'total':[0.037,0.026,0.025,0.023,0.061],
+                         'sf':[1.030,1.007,0.986,0.988,0.957],
+              },
+              '77':{
+                        'sys':[0.036,0.024,0.025,0.022,0.058],
+                       'stat':[0.007,0.006,0.004,0.005,0.011],
+                      'total':[0.037,0.025,0.025,0.022,0.059],
+                         'sf':[1.026,1.014,0.994,0.994,0.956],
+              },
+              '85':{
+                        'sys':[0.035,0.024,0.025,0.020,0.059],
+                       'stat':[0.006,0.005,0.003,0.005,0.010],
+                      'total':[0.036,0.024,0.025,0.021,0.060],
+                         'sf':[1.040,1.026,1.006,0.996,0.966],
               },
       },
 
@@ -60,7 +89,7 @@ Data['TrackJets']={
 }
 
 Data['Calo Jets']={
-      'T_P':{
+      'TP0':{
               '60':{
                         'sys':[0.087,0.029,0.017,0.021,0.035,0.050],
                        'stat':[0.034,0.008,0.007,0.009,0.018,0.038],
@@ -117,14 +146,14 @@ Data['Calo Jets']={
 
 # bin info
 XAxis = {
-   'Calo Jets':[ '20-30', '30-60', '60-90', '90-140', '140-200', '200-300' ],
-   'TrackJets':[ '10-20', '20-30', '30-60', '60-100', '100-250', '250-300' ],
+   'Calo Jets':[ '20-30GeV', '30-60GeV', '60-90GeV', '90-140GeV', '140-200GeV', '200-300GeV' ],
+   'TrackJets':[ '10-20GeV', '20-30GeV', '30-60GeV', '60-100GeV', '100-250GeV']#, '250-300' ],
 }
 
 ErrSet  = {
-   'total':{'colo':kBlack,'pos':0, 'line':-1},
-     'sys':{'colo':kBlue, 'pos':1, 'line':-1},
-    'stat':{'colo':kRed,  'pos':2, 'line':-1},
+   'total':{'colo':-1,'pos':0, 'line':1},
+     'sys':{'colo':-1,'pos':1, 'line':2},
+    'stat':{'colo':-1,'pos':2, 'line':3},
 }
 
 # general setting
@@ -132,18 +161,21 @@ suffix  = 'eps'
 lumi    = '27.65'
 width   = 0.8
 Central = {  'name':'sf',
+          'OutName':'scalefactor',
 	    'title':'scale factors',
 	 'DrawLine':True,
 	       'LP':[0.55,0.65,0.9,0.9],
 	    'width':800,
 	   'height':600,
+       'LegColumns':1,
+          'LabSize':0.1,
 	  }
 
 PlotTitle = 'Comparison between TP and PDF'
 
 MethodSet = {
-   'T_P':{'line':1,'shift':0,'colo':-1},
-   'PDF':{'line':2,'shift':1,'colo':-1},
+   'PDF':{'line':-1,'shift':0,'colo':kBlue},
+   'TP0':{'line':-1,'shift':1,'colo':kBlack},
 }
 
 # plotting function
@@ -172,14 +204,19 @@ def MakePlot( Jet, WP, DataPool ):
     c1 = TCanvas('c1',Title,Central['width'],Central['height']);
     mg = TMultiGraph("mg",Title);
     leg = TLegend( Central['LP'][0], Central['LP'][1], Central['LP'][2], Central['LP'][3] )
+    leg.SetNColumns(Central['LegColumns'])
     #leg.SetTextFont(42)
     #leg.SetTextSize(0.04)
     leg.SetFillColor(0)
     leg.SetLineColor(0)
     leg.SetFillStyle(0)
     leg.SetBorderSize(0)
-    for mt in MethodSet:
-       for err in ErrSet:
+    for index in range(0,len(MethodSet)):
+       for mt in MethodSet:
+	  if index == MethodSet[mt]['shift']: break
+       for pos in range(0,len(ErrSet)):
+	  for err in ErrSet:
+	     if pos == ErrSet[err]['pos'] : break
 	  g,l=MakeGraph(mt, Jet, WP, err, DataPool)
 	  mg.Add(g)
 	  leg.AddEntry(g,l,"lp")
@@ -187,6 +224,12 @@ def MakePlot( Jet, WP, DataPool ):
     #mg.SetMinimum(0.)
     #mg.SetMaximum(NItems+1)
     mg.Draw('AP')
+    xax = mg.GetXaxis()
+    for ix in range(NItems):
+       #print xax.FindBin(ix+1)
+       xax.SetBinLabel(xax.FindBin(ix+1),XAxis[Jet][ix])
+    xax.LabelsOption("h")
+    xax.SetLabelSize(Central['LabSize'])
     leg.Draw()
 
     # draw line one
@@ -196,6 +239,7 @@ def MakePlot( Jet, WP, DataPool ):
     L_One.SetLineStyle(2)
     L_One.SetLineWidth(3)
     if Central['DrawLine']: L_One.Draw()
+
     mg.GetYaxis().SetRangeUser(c1.GetUymin(), c1.GetUymin()+1.25*(c1.GetUymax()-c1.GetUymin()) );
     ATLAS_LABEL(0.12, 0.85, 1)
 
@@ -220,19 +264,89 @@ def MakePlot( Jet, WP, DataPool ):
     #for line in lines:
     #   line.Draw()
 
-    c1.Print('./complots/Com_%s_%s_%s.%s'%(Jet.replace(' ',''),WP,Central['name'],suffix))
+    if not os.path.isdir("./complots/"):
+        os.mkdir('./complots/')
+    c1.Print('./complots/Com_%s_%s_%s.%s'%(Jet.replace(' ',''),WP,Central['OutName'],suffix))
     del c1
 
+def MakePlotSplit( Jet, WP, DataPool ):
+    NItems = len(XAxis[Jet])
+    for err in ErrSet:
+       for ib in range( NItems ):
+          Title = '%s at %s WP of %s Calibration of %s in %d ptbin'%(PlotTitle,WP,Jet,err,ib+1)
+          c1 = TCanvas('c1',Title,Central['width'],Central['height']);
+          mg = TMultiGraph("mg",Title);
+          leg = TLegend( Central['LP'][0], Central['LP'][1], Central['LP'][2], Central['LP'][3] )
+          leg.SetNColumns(Central['LegColumns'])
+          #leg.SetTextFont(42)
+          #leg.SetTextSize(0.04)
+          leg.SetFillColor(0)
+          leg.SetLineColor(0)
+          leg.SetFillStyle(0)
+          leg.SetBorderSize(0)
+          for index in range(0,len(MethodSet)):
+             for mt in MethodSet:
+                if index == MethodSet[mt]['shift']: break
+             g,l=MakeGraphSplit(mt, Jet, WP, err, DataPool,ib)
+             mg.Add(g)
+             leg.AddEntry(g,l,"p")
+          mg.Draw('AP')
+          leg.Draw()
+
+          # draw line one
+          c1.Update()
+          L_One = TLine(c1.GetUxmin(), 1., c1.GetUxmax(), 1.);
+          L_One.SetLineColor(kGreen)
+          L_One.SetLineStyle(2)
+          L_One.SetLineWidth(3)
+          if Central['DrawLine']: L_One.Draw()
+          mg.GetYaxis().SetRangeUser(c1.GetUymin(), c1.GetUymin()+1.25*(c1.GetUymax()-c1.GetUymin()) );
+          ATLAS_LABEL(0.12, 0.85, 1)
+
+          l_LS=TLatex()
+          l_LS.SetNDC()
+          l_LS.SetTextSize(0.04)
+          l_LS.SetTextColor(1)
+          l_LS.DrawLatex(0.12, 0.78, "#intLdt = %s fb^{-1}   #sqrt{s} = 13 TeV"%lumi)
+          myText(0.25, 0.85, 1, 'Internal')
+
+          if not os.path.isdir("./complots/"):
+              os.mkdir('./complots/')
+          c1.Print('./complots/Com_%s_%s_%s_%s_%d.%s'%(Jet.replace(' ',''),WP,Central['OutName'],err,ib+1,suffix))
+          del c1
+
 def MakeCentralWithErr( CR, bins, Err ): #Calibration Results
-    y = numpy.ndarray( [bins] )
-    ey= numpy.ndarray( [bins] )
-    ex= numpy.ndarray( [bins] )
+    #y = numpy.ndarray( [bins] )
+    #ey= numpy.ndarray( [bins] )
+    #ex= numpy.ndarray( [bins] )
+    y = []
+    ey=[]
+    ex=[]
     for ib in range( bins ):
-        y[ib]  = CR[Central['name']][ib]
-        ex[ib] = 0.
-        ey[ib] = CR[Err][ib]
+        #y[ib]  = CR[Central['name']][ib]
+        #ex[ib] = 0.
+        #ey[ib] = CR[Err][ib]
+	if type(CR[Central['name']][ib]) is str:
+	   y.append(float(CR[Central['name']][ib]))
+	   ey.append(float(CR[Err][ib]))
+	else:
+           y.append(CR[Central['name']][ib])
+           ey.append(CR[Err][ib])
+        ex.append(0.)
 	#print y[ib],ex[ib],ey[ib]
-    return y,ex,ey
+    array_y = array( 'd',y )
+    array_ex= array( 'd',ex )
+    array_ey= array( 'd',ey )
+    return array_y,array_ex,array_ey
+
+def MakeErr( CR, ptbin, Err ): #Calibration Results
+    ey=[]
+    if type(CR[Err][ptbin]) is str:
+        ey.append(float(CR[Err][ptbin]))
+    else:
+        ey.append(CR[Err][ptbin])
+    array_ey= array( 'd',ey )
+    return array_ey
 
 def MakeGraph( Method, Jet, WP, Err, DataPool):
     name = '%s with %s from %s at %s WP of %s'%(Central['title'],Err,Method,WP,Jet)
@@ -240,14 +354,20 @@ def MakeGraph( Method, Jet, WP, Err, DataPool):
     NItems = len(XAxis[Jet])
     shift = MethodSet[Method]['shift']*width/(len(ErrSet)*(len(MethodSet)+1))
     binpos = 1.+shift-width/2.+ErrSet[Err]['pos']*width/len(ErrSet)
-    x = numpy.ndarray( [NItems] )
+    #x = numpy.ndarray( [NItems] )
+    x_pos = []
     for ib in range( NItems ):
-       x[ib] = ib + binpos
+       x_pos.append( ib + binpos )
        #print x[ib]
+    x = array('d', x_pos)
     CR = DataPool[Jet][Method][WP]
     y, ex, ey = MakeCentralWithErr( CR, NItems, Err )
+    #print x
+    #print y
+    #print ex
+    #print ey
     g = TGraphErrors( NItems, x, y, ex, ey )
-    g.SetLineWidth(3)
+    g.SetLineWidth(1)
 
     if ErrSet[Err]['line'] > 0: g.SetLineStyle( ErrSet[Err]['line'] )
     if ErrSet[Err]['colo'] > 0: 
@@ -262,9 +382,48 @@ def MakeGraph( Method, Jet, WP, Err, DataPool):
     g.SetMarkerSize(1);
     g.SetTitle(name)
     return g,lname
+
+def MakeGraphSplit( Method, Jet, WP, Err, DataPool, ptbin):
+    name = '%s with %s from %s at %s WP of %s uncertainty'%(Central['title'],Err,Method,WP,Jet)
+    #lname= '%s with %5s from %s'%(Central['name'],Err,Method)
+    lname= '%s'%Method
+    x = array('d', [1+MethodSet[Method]['shift']])
+    CR = DataPool[Jet][Method][WP]
+    ey = MakeErr( CR, ptbin, Err )
+    g = TGraph( 1, x, ey )
+    g.SetLineWidth(1)
+    g.SetLineStyle(1)
+
+    if ErrSet[Err]['colo'] > 0: 
+       g.SetLineColor( ErrSet[Err]['colo'] )
+       g.SetMarkerColor(ErrSet[Err]['colo']);
+    if MethodSet[Method]['colo'] > 0:
+       g.SetLineColor( MethodSet[Method]['colo'] )
+       g.SetMarkerColor(MethodSet[Method]['colo']);
+
+    g.SetMarkerStyle(8);
+    g.SetMarkerSize(2);
+    g.SetTitle(name)
+    return g,lname
+
+def ShowBreakDown( Method, Jet, WP, DataPool):
+    CR = DataPool[Jet][Method][WP]
+    print '%s at %s with %s of %s'%(Central['name'], WP, Method, Jet )
+    # show scale factors
+    print '%s '%Central['name'],
+    for ib in range(len(XAxis[Jet])):
+        print '%s '%CR[Central['name']][ib],
+    print
+
+    # show errors
+    for pos in range(0,len(ErrSet)):
+        for err in ErrSet:
+	    if pos == ErrSet[err]['pos'] : break
+	print '%s '%err,
+        for ib in range(len(XAxis[Jet])):
+	    print '%s '%CR[err][ib],
+	print
     
-
-
 gROOT.SetBatch(1)
 
 if __name__=='__main__':
@@ -277,3 +436,13 @@ if __name__=='__main__':
    #MakePlot('Calo Jets','70',Data)
    #MakePlot('Calo Jets','77',Data)
    MakePlot('Calo Jets','85',Data)
+   #MakePlotSplit( 'Calo Jets', '85', Data )
+
+   # compare with Chloe Only Track Jets
+   MethodSet['TP1']={'line':-1,'shift':2,'colo':kRed}
+   MakePlot('TrackJets','60',Data)
+   MakePlot('TrackJets','70',Data)
+   MakePlot('TrackJets','77',Data)
+   MakePlot('TrackJets','85',Data)
+   ShowBreakDown( 'TP0', 'Calo Jets', '77', Data)
+   ShowBreakDown( 'TP0', 'TrackJets', '77', Data)
